@@ -39,6 +39,8 @@ logfile_max_lines="5000"
 retention_days="7"
 retention_date_in_seconds=$(date +%s --date "$retention_days days ago")
 
+# Which day of the month (01-31) 
+keep_forever_day="01"
 
 ## Function Declarations ##
 
@@ -95,10 +97,11 @@ cleanup_snapshots() {
 			log "Checking $snapshot..."
 			# Check age of snapshot
 			snapshot_date=$(aws ec2 describe-snapshots --region $region --output=text --snapshot-ids $snapshot --query Snapshots[].StartTime | awk -F "T" '{printf "%s\n", $1}')
+			snapshot_day_of_month=$(awk -F "-" '{ print $3 }' <<< $snapshot_date)
 			snapshot_date_in_seconds=$(date "--date=$snapshot_date" +%s)
 			snapshot_description=$(aws ec2 describe-snapshots --snapshot-id $snapshot --region $region --query Snapshots[].Description)
 
-			if (( $snapshot_date_in_seconds <= $retention_date_in_seconds )); then
+			if (( $snapshot_date_in_seconds <= $retention_date_in_seconds && $snapshot_day_of_month != $keep_forever_day )); then
 				log "DELETING snapshot $snapshot. Description: $snapshot_description ..."
 				aws ec2 delete-snapshot --region $region --snapshot-id $snapshot
 			else
